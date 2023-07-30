@@ -11,6 +11,7 @@ You may also choose to compile from the source code in src/.
 
 ## Input and options  
     y = W a + x b + Z u + e 
+
   
           -p phenotype_file (y). 
   
