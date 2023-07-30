@@ -34,7 +34,8 @@ By default pref.pval.gz only contains p-values, one column per phenotypes and on
 If -b is invoked, then additional informations will be writen, include SNP effect size (beta), sigma of beta, eta/(1+eta), and number of IDUL iterations to obtain eta estimates. 
 
 ## Usage exmpales.  
-    ./idul -i input.vcf.gz -p phenotypes.gz -k kinship.txt -o pref 
-    This example takes vcf file as input genotypes; multiple phenotypes is allowed with one per columns; kinship.gz contains an nxn symmetric matrix. The output contains wald test p-values for each SNP. 
-    ./idul -g input.bimbam.mgt.gz -p phenotypes.gz -k kinship.gz -o pref -b 
-    This example takes bimbam mean genotype as input genotypes. The output contains more columns in addition to p-values, such as beta and sigma, etc. 
+1) This example takes vcf file as input genotypes; multiple phenotypes is allowed with one per columns; kinship.gz contains an nxn symmetric matrix. The output contains wald test p-values for each SNP.
+       ./idul -i input.vcf.gz -p phenotypes.gz -k kinship.txt -o pref 
+
+2) This example takes bimbam mean genotype as input genotypes. The output contains more columns in addition to p-values, such as beta and sigma, etc. 
+       ./idul -g input.bimbam.mgt.gz -p phenotypes.gz -k kinship.gz -o pref -b 
