@@ -1,2 +1,31 @@
-# idul
-iterative dispersion update to fit linear mixed model 
+# IDUL
+IDUL (iterative dispersion update to fit linear mixed model) is designed for multi-omics analysis where each SNPs are tested for association with many phenotypes. IDUL has both theoretical and practical advantages over the Newton-Raphson method. Below is the abstract of a manuscript that document IDUL with a title "Iterative dispersion update achieves an exact optimum for the linear mixed model in genetic association studies".   
+
+In genetic association studies, the linear mixed model (LMM) has become a standard practice to account for population stratification and relatedness in the sample, which if unaccounted for tend to produce false positives. Despite recent progress, fitting LMMs to achieve an exact optimum remains computationally demanding, particularly in multi-omics studies where tens of thousands of phenotypes are tested for association with millions of genetic markers.  
+The state-of-the-art method GEMMA used Newton-Raphson algorithm for optimization to achieve ``effectively exact" optimum.   
+Here we present IDUL, an approach that uses iterative dispersion updates to fit LMMs. The dispersion update requires no evaluation of derivatives of the likelihood function, rather, it fits two weighted least square regressions in each iteration.  Applied to Sabre protein assay from the Framingham Heart Study,  IDUL converged in a few iterations and provided consistent estimates between different initial values, showed superiority over the Newton-Raphson method. We analyzed IDUL through a theoretical lens to show that it is as efficient as the Newton-Raphson method near the optimum, and with a sufficiently large sample size, IDUL update  always increases the likelihood, even outside the neighborhood of the optimum, which ensures its consistency. Most significantly, with sufficiently large sample, IDUL converges to the global optimum with a probability of one, achieving the exact optimum.  Software implementing IDUL can be downloaded at \url{http://www.haplotype.org}. 
+
+## Current version 
+Version 0.51 was compiled on 28 July 2023. Exectuables for Linux and Mac can be found here: http://www.haplotype.org/software.html.  
+You may also choose to compile from the source code in src/. 
+
+## Input and options  
+y = W a + x b + Z u + e 
+y:  -p phenotype_file. Phenotypes file is expected to have multiple columns (a single column is okay too) with one column for each phenotype. Phenotypes should have no missing values. 
+W:  -c covariate_file. Covariates file is a square, with the same number of rows as phenotypes, and however many columns needed. 
+x:  -i vcf_file or -g bimbam_mean_genotypes. Missing values are allowed for vcf files (replaced with the mean genotypes), but not allowed in bimbam mean genotypes. 
+u:  -k kinship_file.   Kinship is a square and symmetric kinsihp matrix, such as one estimated by [kindred](https://github.com/haplotype/kindred)  
+
+The options related to input files: 
+-e eigenvector_file.   Each column is an eigenvector.  
+-v eigenvalues_file.   One row with n numbers, assumed jth number of the eigenvalue correpsonding to j-th column of the eigenvectors. 
+These two options come together, and mutually exclusive with -k. 
+-f minor_allele_freq.  SNPs whose maf below the threshold will be removed. 
+
+## Output and options
+
+## Usage exmpales.  
+    ./idul -i input.vcf.gz -p phenotypes.gz -k kinship.gz -o pref 
+    This example takes vcf file as input genotypes; multiple phenotypes is allowed with one per columns; kinship.gz contains an nxn symmetric matrix. The output contains wald test p-values for each SNP. 
+    ./idul -g input.bimbam.mgt.gz -p phenotypes.gz -k kinship.gz -o pref -b 
+    This example takes bimbam mean genotype as input genotypes. The output contains more columns in addition to p-values, such as beta and sigma, etc. 
