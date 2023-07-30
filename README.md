@@ -49,4 +49,4 @@ If -b is invoked, then additional informations will be writen, include SNP effec
        ./idul -g input.bimbam.mgt.gz -p phenotypes.gz -k kinship.gz -o pref -b 
 
 ## Other options
--t number_of_threads. More threads can speed up computation. 
+       -t  number_of_threads.  
