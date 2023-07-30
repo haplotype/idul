@@ -12,44 +12,24 @@ You may also choose to compile from the source code in src/.
 This is the standard linear mixed model. The following options specify each components (except e). 
 
     -p phenotype_file (y). 
-  
-  Phenotypes file is expected to have multiple columns (a single column is okay too) with one column for each phenotype. Phenotypes should have no missing values. 
-  
     -c covariate_file (W). 
-  
-  Covariates file is a square, with the same number of rows as phenotypes, and however many columns needed. 
-  
     -i vcf_file  (x).  
-  
-  Missing values are allowed for vcf files (replaced with the mean genotypes). 
-  
     -g bimbam_mean_genotypes (x). 
+    -k kinship_file (u).  
   
-  Rows of bimbam mean genotype looks like below. 
+Phenotypes file is expected to have multiple columns (a single column is okay too) with one column for each phenotype. Phenotypes should have no missing values. Covariates file is a square, with the same number of rows as phenotypes, and however many columns needed. Missing values are allowed for vcf files (replaced with the mean genotypes), but not allowed for bimbam mean genotypes. Kinship is a square and symmetric kinsihp matrix, such as one estimated by [kindred](https://github.com/haplotype/kindred). Rows of bimbam mean genotype looks like below. 
 
     rs123 A G 0 1 2 2 0 1.1 0 
     rs456 C T 1 0 1 0.05 0 2 0 
   
-  Missing value is not allowed in bimbam mean genotypes. 
-  
-    -k kinship_file (u).   
-  
-  Kinship is a square and symmetric kinsihp matrix, such as one estimated by [kindred](https://github.com/haplotype/kindred)  
+### The options related to input files: 
 
-
-The options related to input files: 
-
-      -e eigenvector_file.   
+    -e eigenvector_file.   
+    -v eigenvalues_file.  
+    -f minor_allele_freq. 
   
-  Each column is an eigenvector.  
-  
-      -v eigenvalues_file.   
-  
-  One row with n numbers, assumed jth number of the eigenvalue correpsonding to j-th column of the eigenvectors. These two options come together, and mutually exclusive with -k. 
-
-      -f minor_allele_freq.  
-  
-  SNPs whose maf below the threshold will be removed. 
+In eigenvector file, each column is an eigenvector. Eigenvalues file contains one row with n numbers, its jth number should correspond to j-th column of the eigenvectors. Two options -e and -v come together, and mutually exclusive with -k. 
+SNPs whose minor allele frequencies are below the threshold will be removed. 
 
 ## Output and options
 There are three output files: pref.log (a txt document contains log), pref.snpinfo.txt.gz, and pref.pval.gz file, where pref is specified by -o. 
