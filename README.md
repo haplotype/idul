@@ -28,9 +28,13 @@ The options related to input files:
   -f minor_allele_freq.  SNPs whose maf below the threshold will be removed. 
 
 ## Output and options
+There are three output files: pref.log (a txt document contains log), pref.snpinfo.txt.gz, and pref.pval.gz file, where pref is specified by -o. 
+There are four columns in pref.snpinfo.txt.gz, SNP ID, A-allele, B-allele, and MAF (minor allele frequency). 
+By default pref.pval.gz only contains p-values, one column per phenotypes and one SNP per row. 
+If -b is invoked, then additional informations will be writen, include SNP effect size (beta), sigma of beta, eta/(1+eta), and number of IDUL iterations to obtain eta estimates. 
 
 ## Usage exmpales.  
-    ./idul -i input.vcf.gz -p phenotypes.gz -k kinship.gz -o pref 
+    ./idul -i input.vcf.gz -p phenotypes.gz -k kinship.txt -o pref 
     This example takes vcf file as input genotypes; multiple phenotypes is allowed with one per columns; kinship.gz contains an nxn symmetric matrix. The output contains wald test p-values for each SNP. 
     ./idul -g input.bimbam.mgt.gz -p phenotypes.gz -k kinship.gz -o pref -b 
     This example takes bimbam mean genotype as input genotypes. The output contains more columns in addition to p-values, such as beta and sigma, etc. 
