@@ -11,13 +11,13 @@ You may also choose to compile from the source code in src/.
 
 ## Input and options  
     y = W a + x b + Z u + e 
-  y:  -p phenotype_file. Phenotypes file is expected to have multiple columns (a single column is okay too) with one column for each phenotype. Phenotypes should have no missing values. 
+  -p phenotype_file (y). Phenotypes file is expected to have multiple columns (a single column is okay too) with one column for each phenotype. Phenotypes should have no missing values. 
   
-  W:  -c covariate_file. Covariates file is a square, with the same number of rows as phenotypes, and however many columns needed. 
+  -c covariate_file (W). Covariates file is a square, with the same number of rows as phenotypes, and however many columns needed. 
   
-  x:  -i vcf_file or -g bimbam_mean_genotypes. Missing values are allowed for vcf files (replaced with the mean genotypes), but not allowed in bimbam mean genotypes. 
+  -i vcf_file or -g bimbam_mean_genotypes (x). Missing values are allowed for vcf files (replaced with the mean genotypes), but not allowed in bimbam mean genotypes. 
   
-  u:  -k kinship_file.   Kinship is a square and symmetric kinsihp matrix, such as one estimated by [kindred](https://github.com/haplotype/kindred)  
+  -k kinship_file (u).   Kinship is a square and symmetric kinsihp matrix, such as one estimated by [kindred](https://github.com/haplotype/kindred)  
 
 The options related to input files: 
 
