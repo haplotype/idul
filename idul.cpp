@@ -419,11 +419,11 @@ int usage()
 {
 	fprintf(stderr, "\n");
 	fprintf(stderr, "Version: %s\n", VERSION);
-	fprintf(stderr, "Usage:   kinverse -i in.vcf.gz -p ph.txt -w cov.txt -k kinship.txt.gz [-adfo]\n");
-	fprintf(stderr, "Options: \n");
-//	fprintf(stderr, "         -a str        INFO tag for allele frequency [AF]\n");
-	fprintf(stderr, "         -c str        covariate file (age, sex etc)\n");
-	fprintf(stderr, "         -d int        thin marker by a min neighor distance [1] \n");
+	fprintf(stderr, "Usage:   idul -i in.vcf.gz -p ph.txt -c cov.txt -k kinship.txt.gz [-bfot]\n");
+        fprintf(stderr, "Options: \n");
+	fprintf(stderr, "         -b            output beta etc in additional to p-values\n");
+        fprintf(stderr, "         -c str        covariate file (age, sex etc)\n");
+//	fprintf(stderr, "         -d int        thin marker by a min neighor distance [1] \n");
 	fprintf(stderr, "         -e str        file name for eigenvectors \n");
 	fprintf(stderr, "         -v str        file name for eigenvalues \n");
 	fprintf(stderr, "         -f flt        minor allele freq threshold [0.01]\n");    
@@ -431,12 +431,12 @@ int usage()
 	fprintf(stderr, "         -h            print usage\n");
 	fprintf(stderr, "         -i str        (indexed) bgzipped vcf file\n");
 	fprintf(stderr, "         -k str        kinship matrix file\n");
-//	fprintf(stderr, "         -n str        numeric genotype input file \n");
 	fprintf(stderr, "         -o str        output prefix [out]\n");
 	fprintf(stderr, "         -p str        phenotype file\n");
-	fprintf(stderr, "         -s            save bimbam mgt from vcf\n");
+//	fprintf(stderr, "         -s            save bimbam mgt from vcf\n");
 	fprintf(stderr, "         -t num        number of threads [16]\n");
-	fprintf(stderr, "         -y            output genotypes in bimbam mgt format\n");
+//	fprintf(stderr, "         -y            output genotypes in bimbam mgt format\n");
+	fprintf(stderr, "\n");
 	fprintf(stderr, "Bug report: Yongtao Guan <ytguan@gmail.com>\n\n");
 	return 1;
 }
@@ -873,7 +873,7 @@ int main(int argc, char *argv[])
     //		cout << hdr->samples[i] << endl; 
     //	}
 	dadu.ns = 0; 
-	int ns0 = 0;  
+//	int ns0 = 0;  
 	int last_chr = -1; 
 	int last_pos = 0; 
 
