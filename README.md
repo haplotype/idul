@@ -39,7 +39,7 @@ SNPs whose minor allele frequencies are below the threshold will be removed.
 There are three output files: pref.log (a txt document contains log), pref.snpinfo.txt.gz, and pref.pval.gz file, where pref is specified by -o. 
 There are four columns in pref.snpinfo.txt.gz, SNP ID, A-allele, B-allele, and MAF (minor allele frequency). 
 By default pref.pval.gz only contains p-values, one column per phenotypes and one SNP per row. 
-If -b is invoked, then additional informations will be writen, include SNP effect size (beta), sigma of beta, eta/(1+eta), and number of IDUL iterations to obtain eta estimates. 
+If -b is invoked, then additional informations will be writen, including SNP effect size (beta), sigma of beta, eta/(1+eta), and number of IDUL iterations to obtain eta estimates. 
 
 ## Usage exmpales  
 1) This example takes vcf file as genotypes input. The output pref.pval.gz only contains a p-value for each SNP each phenotype.
