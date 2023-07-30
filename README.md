@@ -39,11 +39,11 @@ There are four columns in pref.snpinfo.txt.gz, SNP ID, A-allele, B-allele, and M
 By default pref.pval.gz only contains p-values, one column per phenotypes and one SNP per row. 
 If -b is invoked, then additional informations will be writen, include SNP effect size (beta), sigma of beta, eta/(1+eta), and number of IDUL iterations to obtain eta estimates. 
 
-## Usage exmpales.  
-1) This example takes vcf file as input genotypes; multiple phenotypes is allowed with one per columns; kinship.gz contains an nxn symmetric matrix. The output contains wald test p-values for each SNP.
+## Usage exmpales  
+1) This example takes vcf file as genotypes input. The output pref.pval.gz only contains a p-value for each SNP each phenotype.
    
        ./idul -i input.vcf.gz -p phenotypes.gz -k kinship.txt -o pref 
 
-2) This example takes bimbam mean genotype as input genotypes. The output contains more columns in addition to p-values, such as beta and sigma, etc.
+2) This example takes bimbam mean genotype as genotype input. Since -b is invoked, the pref.pval.gz contains more columns in addition to p-values, such as beta and sigma, etc.
    
        ./idul -g input.bimbam.mgt.gz -p phenotypes.gz -k kinship.gz -o pref -b 
