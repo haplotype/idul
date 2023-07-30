@@ -6,7 +6,7 @@ The state-of-the-art method GEMMA used Newton-Raphson algorithm for optimization
 Here we present IDUL, an approach that uses iterative dispersion updates to fit LMMs. The dispersion update requires no evaluation of derivatives of the likelihood function, rather, it fits two weighted least square regressions in each iteration.  Applied to Sabre protein assay from the Framingham Heart Study,  IDUL converged in a few iterations and provided consistent estimates between different initial values, showed superiority over the Newton-Raphson method. We analyzed IDUL through a theoretical lens to show that it is as efficient as the Newton-Raphson method near the optimum, and with a sufficiently large sample size, IDUL update  always increases the likelihood, even outside the neighborhood of the optimum, which ensures its consistency. Most significantly, with sufficiently large sample, IDUL converges to the global optimum with a probability of one, achieving the exact optimum.  Software implementing IDUL can be downloaded at http://www.haplotype.org. 
 
 ## Current version 
-Version 0.51 was compiled on 28 July 2023. Exectuables for Linux and Mac can be found here: http://www.haplotype.org/software.html.  
+Version 0.51 was compiled on 28 July 2023. Linux exectuable can be downloaded from: http://www.haplotype.org.  
 You may also choose to compile from the source code in src/. 
 
 ## Input and options  
@@ -47,3 +47,6 @@ If -b is invoked, then additional informations will be writen, include SNP effec
 2) This example takes bimbam mean genotype as genotype input. Since -b is invoked, the pref.pval.gz contains more columns in addition to p-values, such as beta and sigma, etc.
    
        ./idul -g input.bimbam.mgt.gz -p phenotypes.gz -k kinship.gz -o pref -b 
+
+## Other options
+-t number_of_threads. More threads can speed up computation. 
