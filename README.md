@@ -27,10 +27,12 @@ This is the standard linear mixed model. The following options specify each comp
   
     -g bimbam_mean_genotypes (x). 
   
-  Missing value is not allowed. Rows of bimbam mean genotype looks like below. 
+  Rows of bimbam mean genotype looks like below. 
 
     rs123 A G 0 1 2 2 0 1.1 0 
     rs456 C T 1 0 1 0.05 0 2 0 
+  
+  Missing value is not allowed in bimbam mean genotypes. 
   
     -k kinship_file (u).   
   
