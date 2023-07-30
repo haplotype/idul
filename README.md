@@ -15,9 +15,15 @@ You may also choose to compile from the source code in src/.
   
   -c covariate_file (W). Covariates file is a square, with the same number of rows as phenotypes, and however many columns needed. 
   
-  -i vcf_file or -g bimbam_mean_genotypes (x). Missing values are allowed for vcf files (replaced with the mean genotypes), but not allowed in bimbam mean genotypes. 
+  -i vcf_file  (x).  Missing values are allowed for vcf files (replaced with the mean genotypes). 
+  
+  -g bimbam_mean_genotypes (x). Missing value is not allowed. Rows of bimbam mean genotype looks like below. 
+
+    rs123 A G 0 1 2 2 0 1.1 0 
+    rs456 C T 1 0 1 0.05 0 2 0 
   
   -k kinship_file (u).   Kinship is a square and symmetric kinsihp matrix, such as one estimated by [kindred](https://github.com/haplotype/kindred)  
+
 
 The options related to input files: 
 
