@@ -10,8 +10,8 @@ Version 0.51 was compiled on 28 July 2023. Linux exectuable can be downloaded fr
 You may also choose to compile from the source code in src/. 
 
 ## Input and options  
-    y = W a + x b + Z u + e 
-
+    y = W a + x b + u + e 
+This is the standard linear mixed model. The following options specify each components (except e). 
 
     -p phenotype_file (y). 
   
