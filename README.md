@@ -20,10 +20,12 @@ You may also choose to compile from the source code in src/.
   u:  -k kinship_file.   Kinship is a square and symmetric kinsihp matrix, such as one estimated by [kindred](https://github.com/haplotype/kindred)  
 
 The options related to input files: 
--e eigenvector_file.   Each column is an eigenvector.  
--v eigenvalues_file.   One row with n numbers, assumed jth number of the eigenvalue correpsonding to j-th column of the eigenvectors. 
-These two options come together, and mutually exclusive with -k. 
--f minor_allele_freq.  SNPs whose maf below the threshold will be removed. 
+
+  -e eigenvector_file.   Each column is an eigenvector.  
+  
+  -v eigenvalues_file.   One row with n numbers, assumed jth number of the eigenvalue correpsonding to j-th column of the eigenvectors. These two options come together, and mutually exclusive with -k. 
+
+  -f minor_allele_freq.  SNPs whose maf below the threshold will be removed. 
 
 ## Output and options
 
