@@ -30,6 +30,7 @@
 #include <vector> 
 #include <stdio.h> 
 #include <stdlib.h> 
+#include <cstring> 
 #include <string.h> 
 #include <unistd.h>
 //#include <sys/stat.h>
@@ -38,6 +39,7 @@
 #include "htslib/sam.h"
 #include "htslib/vcf.h"              
 #include <map> 
+#include <cmath>
 #include <math.h>
 #include <pthread.h>
 #include <stdint.h>
@@ -45,10 +47,18 @@
 #include "thpool.h"
 //#include <omp.h>
 
+#define EIGEN_USE_OPENMP
+//#define EIGEN_USE_LAPACKE
+
 #include <Eigen/Dense>
 #include <boost/math/distributions/students_t.hpp>
 #include <boost/math/distributions/chi_squared.hpp>
+#include <boost/math/distributions/fisher_f.hpp>
 //#include <unsupported/Eigen/SelfAdjointEigenSolver>
+
+#include <boost/iostreams/filtering_stream.hpp> 
+#include <boost/iostreams/device/file_descriptor.hpp> 
+#include <boost/iostreams/filter/gzip.hpp> 
 
 #ifdef EIGEN_USE_LAPACKE
 #include <lapacke.h>
@@ -68,6 +78,8 @@ typedef struct Stats {
     double eta; 
     double beta; 
     double sigma; 
+    double l0; 
+    double l1; 
 } Stats; 
 
 typedef struct KData {
@@ -83,10 +95,12 @@ typedef struct KData {
     int nph; //number of phenotypes; 
     vector<float> v8; 
     int flag_kk; 
+    int m_lrt; 
+    int m_wald; 
 
-//    double * pv;  //pvals; 
-//    double * veta;  //etas;
-//    int * iter; 
+    double * veta0; 
+    double * vloglike0; //these are sets of values are for likelihood ratio test. 
+    
     Stats * pstats; 
 } KData; 
 
@@ -207,16 +221,15 @@ void herit(int flag, string fn)
     Eigen::VectorXd d1(ni); 
     Eigen::VectorXd d2(ni);
     Eigen::MatrixXd X(ni, dadu.ww.cols()); 
-    Eigen::MatrixXd X2(ni, 2); 
     Eigen::VectorXd e1(ni);    
     Eigen::VectorXd r2(ni);    
     Eigen::MatrixXd xtx;
     Eigen::VectorXd beta1;    
-    Eigen::VectorXd r1(ni);    
-    Eigen::VectorXd r0(ni);    
+
+    Eigen::MatrixXd X2(ni, 2); 
+    Eigen::MatrixXd xtx2;
 
     Eigen::MatrixXd X3(ni, dadu.ww.cols()); 
-    Eigen::MatrixXd xtx2;
 
     gzFile fp1 = gzopen(fn.c_str(), "w");
     if (fp1 == NULL) {
@@ -244,7 +257,10 @@ void herit(int flag, string fn)
 //	    dd = dd / (eta0 + 1); 
 	    d2 = dd.cwiseInverse(); 
 	    d1 = d2.cwiseSqrt(); 
-	    X << dadu.ww.cwiseProduct(d1); 
+	    Eigen::MatrixXd ww2 = dadu.ww; 
+	    for (int i = 0; i < ww2.cols(); i++)
+		ww2.col(i).cwiseProduct(d1); 
+	    X << ww2; 
 	    xtx = X.transpose() * X; 
 	    Eigen::VectorXd y1 = curph.cwiseProduct(d1); 
 	    Eigen::VectorXd xty = X.transpose() * y1; 
@@ -266,21 +282,17 @@ void herit(int flag, string fn)
 		Eigen::VectorXd xty2 = X2.transpose() * r2; 
 		Eigen::VectorXd beta2 = xtx2.ldlt().solve(xty2);
 	//	Eigen::VectorXd beta2 = xtx2.inverse() * xty2;
-    //	    eta1 = beta2(1) / (beta2(0) + beta2(1)); 
-    //	    if(eta1 >= 0.99999) eta1 = 0.99999; 
-    //	    else if (eta1 <= 0.00001) eta1 = 0.00001;
-    //	    eta1 = eta1/(1-eta1); 
-		eta1 = beta2(1) / (beta2(0) < 1e-5 ? 1e-5 : beta2(0)); 
+		double t1 = beta2(1) / max(1e-20, beta2(0));  
+		double t2 = beta2(1) / (r2.sum() / ni);  
+		eta1 = (t1 + t2)/2.0; 
 		if(eta1 >= 1e5) eta1 = 1e5; 
 		else if (eta1 <= 1e-5) eta1 = 1e-5;
 	    }
 	    else { //reml
 		double rh1r = r2.sum(); 
-		r0 = r2.cwiseProduct(d2); 
-		double rh2r = r0.sum(); 
+		double rh2r = r2.cwiseProduct(d2).sum(); 
 		double trh1 = d2.sum(); 
-		r1 = d2.cwiseProduct(d2); 
-		double trh2 = r1.sum(); 
+		double trh2 = d2.cwiseProduct(d2).sum();
 	
 		double mh = trh1/ni; 
 		double vh = trh2/ni - mh*mh; 
@@ -295,37 +307,22 @@ void herit(int flag, string fn)
 		if(eta1 >= 1e5) eta1 = 1e5; 
 		else if (eta1 <= 1e-5) eta1 = 1e-5;
 	    }
-
-
 	    diff = eta1/(1+eta1) - eta0/(1+eta0); 
-	    {
-		cout << steps << "\t" << diff << "\t" << eta0 << "\t" << eta1 << endl; 
-	    }
 	}
-//	cout << "PVE = " << eta1/(1+eta1) << endl; 
-	gzprintf(fp1, "%.6f \n", eta1/(1+eta1)); 
+	gzprintf(fp1, "%.6e \n", eta1/(1+eta1)); 
     }
     gzclose(fp1); 
 }
 
-void jacquard(void *par) 
+void loglike0(void) 
 {
     int ni = dadu.ni;    
-    long tiktok = (long) par; 
-    long beg = tiktok * ni; 
-    Eigen::VectorXd x1(ni); 
-    for (int i = 0; i < ni; i++)
-	x1(i) = dadu.v8[beg + i]; 
-    Eigen::VectorXd x2 = dadu.evec.transpose() * x1; 
-    //snp; 
-//    int cols = dadu.ww.cols()+1; 
+//    int cols = dadu.ww.cols(); 
 
     Eigen::VectorXd v1(ni);
-    Eigen::VectorXd hh(ni);
-    Eigen::VectorXd h2inv(ni);
-    Eigen::VectorXd h1inv(ni); 
-    //h2inv=1/hh; h1inv=sqrt(h2inv); 
-    Eigen::MatrixXd X(ni, dadu.ww.cols()+1); 
+    Eigen::VectorXd d1(ni); 
+    Eigen::VectorXd d2(ni);
+    Eigen::MatrixXd X(ni, dadu.ww.cols()); 
     Eigen::MatrixXd X2(ni, 2); 
     Eigen::VectorXd e1(ni);    
     Eigen::VectorXd r2(ni);    
@@ -334,30 +331,33 @@ void jacquard(void *par)
     Eigen::VectorXd r1(ni);    
     Eigen::VectorXd r0(ni);    
 
-    Eigen::MatrixXd X3(ni, dadu.ww.cols()+1); 
+    Eigen::MatrixXd X3(ni, dadu.ww.cols()); 
     Eigen::MatrixXd xtx2;
 
+    dadu.veta0 = new double[dadu.mph.cols()]; 
+    dadu.vloglike0 = new double[dadu.mph.cols()]; 
     for (int p = 0; p < dadu.mph.cols(); p++) 
     {
 	Eigen::VectorXd curph = dadu.mph.col(p); 
-	double pval; 
+//	double pval; 
 	int steps = 0; 
 	int max_iter = 100;    
 	double eta0=1, eta1=0.1; 
     //    double beta0, beta1; 
 	double diff = 1; 
-	while (fabs(diff)>1e-5 && steps<max_iter) 
+	while (fabs(diff)>1e-6 && steps<max_iter) 
 	{
 	    steps++;  
 	    eta0 = eta1; 
 	    //y=x beta + e; 
 	    v1.setOnes(); 
-	    hh = eta0 * dadu.eval + v1; 
-	    h2inv = hh.cwiseInverse(); 
-	    h1inv = h2inv.cwiseSqrt(); 
-	    X << x2.cwiseProduct(h1inv), dadu.ww.cwiseProduct(h1inv); 
+	    Eigen::VectorXd dd = eta0 * dadu.eval + v1; 
+	    d2 = dd.cwiseInverse(); 
+	    d1 = d2.cwiseSqrt(); 
+	    Eigen::MatrixXd ww2 = dadu.ww; 
+	    X << ww2.array().colwise() * d1.array(); 
 	    xtx = X.transpose() * X; 
-	    Eigen::VectorXd y1 = curph.cwiseProduct(h1inv); 
+	    Eigen::VectorXd y1 = curph.cwiseProduct(d1); 
 	    Eigen::VectorXd xty = X.transpose() * y1; 
 	    beta1 = xtx.ldlt().solve(xty);
     //	beta1 = xtx.inverse() * xty;
@@ -369,49 +369,208 @@ void jacquard(void *par)
 	    
 	    //r2 = (1, D) beta2 + err;                  
 	    v1.setOnes(); 
-	    X2.col(0) = v1.cwiseProduct(h2inv); 
-	    X2.col(1) = dadu.eval.cwiseProduct(h2inv); 
+	    X2.col(0) = v1.cwiseProduct(d2); 
+	    X2.col(1) = dadu.eval.cwiseProduct(d2); 
 	    Eigen::MatrixXd xtx2 = X2.transpose() * X2; 
 	    Eigen::VectorXd xty2 = X2.transpose() * r2; 
 	    Eigen::VectorXd beta2 = xtx2.ldlt().solve(xty2);
-    //	Eigen::VectorXd beta2 = xtx2.inverse() * xty2;
-	    eta1 = beta2(1) / (beta2(0) + beta2(1)); 
-	    if(eta1 >= 0.99999) eta1 = 0.99999; 
-	    else if (eta1 <= 0.00001) eta1 = 0.00001;
-	    eta1 = eta1/(1-eta1); 
-	    //this works slightly better than below when beta2(1) < 0. 
+	    double t1 = beta2(1) / max(1e-20, beta2(0));  
+	    double t2 = beta2(1) / (r2.sum() / ni);  
+	    eta1 = (t1 + t2)/2.0; 
+	    if(eta1 >= 1e5) eta1 = 1e5; 
+	    else if (eta1 <= 1e-5) eta1 = 1e-5;
+	    diff = eta1/(1+eta1) - eta0/(1+eta0); 
+	}
+        dadu.veta0[p] = eta1; 
+	dadu.vloglike0[p] = 0; 
+	for (int i = 0; i < ni; i++)
+	    dadu.vloglike0[p] += log(d1(i)); 
+	dadu.vloglike0[p] -=  log(r2.sum()) * ni / 2.0;   
+    }
+}
 
-//	    eta1 = beta2(1) / (beta2(0) < 1e-5 ? 1e-5 : beta2(0)); 
-//	    if(eta1 >= 1e5) eta1 = 1e5; 
-//	    else if (eta1 <= 1e-5) eta1 = 1e-5;
+void jacquard(void *par) 
+{
+    int ni = dadu.ni;    
+    long tiktok = (long) par; 
+    long beg = tiktok * ni; 
+    Eigen::VectorXd x1(ni); 
+    for (int i = 0; i < ni; i++)
+	x1(i) = dadu.v8[beg + i]; 
+    x1.array() -= x1.mean();
+    Eigen::VectorXd x2 = dadu.evec.transpose() * x1; 
+    //snp; 
+    int cols = dadu.ww.cols()+1;
+
+    Eigen::VectorXd v1(ni);
+    Eigen::VectorXd hh(ni);
+    Eigen::VectorXd h2inv(ni);   //old d2; 
+    Eigen::VectorXd h1inv(ni);   //old d1; 
+    //h2inv=1/hh; h1inv=sqrt(h2inv); 
+    Eigen::MatrixXd X(ni, dadu.ww.cols()+1); 
+    Eigen::MatrixXd xtx(cols,cols);
+    Eigen::VectorXd xty(ni); 
+    Eigen::VectorXd y1(ni); 
+    Eigen::VectorXd beta1;    
+    Eigen::VectorXd e1(ni);    
+    Eigen::VectorXd r2(ni);    
+
+    Eigen::VectorXd t1(dadu.ww.cols()+1);    
+    t1.setOnes(); 
+
+    Eigen::MatrixXd X2(ni, 2); 
+    Eigen::MatrixXd xtx2(2,2);
+    Eigen::VectorXd xty2(ni); 
+    Eigen::VectorXd beta2(ni);
+
+    Eigen::MatrixXd X3(ni, dadu.ww.cols()+1); 
+//    Eigen::VectorXd r1(ni);    
+//    Eigen::VectorXd r0(ni);    
+
+    int max_iter = 100;    
+    for (int p = 0; p < dadu.mph.cols(); p++) 
+    {
+	Eigen::VectorXd curph = dadu.mph.col(p); 
+	double pval=1; 
+	int steps = 0; 
+    	double eta0=1, eta1; 
+	if(dadu.m_lrt == 1) eta1 = dadu.veta0[p]; 
+	else eta1 = 0.1; 
+	double diff = 1; 
+//	double like_old = -1e100; 
+//	int hybrid = 1; 
+	while (fabs(diff)>1e-6 && steps<max_iter) 
+	{
+	    steps++;  
+	    eta0 = eta1; 
+	    //y=x beta + e; 
+	    v1.setOnes(); 
+	    hh = eta0 * dadu.eval + v1; 
+	    h2inv = hh.cwiseInverse(); 
+	    h1inv = h2inv.cwiseSqrt(); 
+	    Eigen::MatrixXd ww2 = dadu.ww; 
+	    X << x2.cwiseProduct(h1inv), ww2.array().colwise() * h1inv.array(); 
+	    xtx = X.transpose() * X; 
+//	    xtx += t1.matrix().asDiagonal(); 
+	    y1 = curph.cwiseProduct(h1inv); 
+	    xty = X.transpose() * y1; 
+	    beta1 = xtx.ldlt().solve(xty);
+    //	beta1 = xtx.inverse() * xty;
+	    e1 = (y1 - X * beta1); 
+	    r2 = e1.cwiseProduct(e1); 
+	    //here e1 needs to scale back by multiplying 1/d1; 
+	    //so r2 needs to multiply 1/d2 to scale back, which cancels with the multiplying d2 below.  
+
+//	    double like_new = 0;
+//	    for(int i = 0; i < ni; i++)
+//		like_new -= log(hh(i)) / 2.0; 
+//	    like_new -= log(r2.sum()) * ni / 2.0; 
+//	    if(like_new < like_old) {
+//		cout << "likelhood decrease detected, switch to idle IDUL." << endl; 
+//		hybrid = 1;   
+//	    }
+//	    like_old = like_new; 
+	    
+	    if(dadu.m_lrt == 1) {
+		//r2 = (1, D) beta2 + err;                  
+		v1.setOnes(); 
+		X2.col(0) = v1.cwiseProduct(h2inv); 
+		X2.col(1) = dadu.eval.cwiseProduct(h2inv); 
+		xtx2 = X2.transpose() * X2; 
+		xty2 = X2.transpose() * r2; 
+		beta2 = xtx2.ldlt().solve(xty2);
+	//	beta2 = xtx2.inverse() * xty2;
+//		if(hybrid == 0) 
+//        	    eta1 = beta2(1) / max(1e-20, beta2(0)); 
+//		else 
+		{
+		    double t1 = beta2(1) / max(1e-20, beta2(0));  
+		    double t2 = beta2(1) / (r2.sum() / ni);  
+		    eta1 = (t1 + t2)/2.0; 
+		}
+	        if(eta1 >= 1e5) eta1 = 1e5; 
+	        else if (eta1 <= 1e-5) eta1 = 1e-5;
+	    } 
+//	    else {
+//		double rh1r = r2.sum(); 
+//		r0 = r2.cwiseProduct(h2inv); 
+//		double rh2r = r0.sum(); 
+//		double trh1 = h2inv.sum(); 
+//		r1 = h2inv.cwiseProduct(h2inv); 
+//		double trh2 = r1.sum(); 
+//	
+//		double mh = trh1/ni; 
+//		double vh = trh2/ni - mh*mh; 
+//	
+//		double fp1 = (trh1 - ni*rh2r/rh1r); 
+//		double delta = fp1 * eta0 / ni / vh;  
+//		eta1 = eta0 + delta; 
+//		if(eta1 >= 1e5) eta1 = 1e5; 
+//		else if (eta1 <= 1e-5) eta1 = 1e-5;
+//	    }
+	    else {   //if(dadu.m_wald == 1) 
+		double rh1r = r2.sum(); 
+		double rh2r = r2.cwiseProduct(h2inv).sum(); 
+		double trh1 = h2inv.sum(); 
+		double trh2 = h2inv.cwiseProduct(h2inv).sum(); 
+	
+		double mh = trh1/ni; 
+		double vh = trh2/ni - mh*mh; 
+
+		Eigen::MatrixXd ww2 = dadu.ww; 
+	    	X3 << x2.cwiseProduct(h2inv), ww2.array().colwise() * h2inv.array(); 
+		xtx2 = X3.transpose() * X3; 
+		Eigen::MatrixXd mat = xtx.inverse() * xtx2; 
+		double fp1 = (trh1 - mat.trace() - (ni-cols)*rh2r/rh1r); 
+	
+		eta1 = eta0 + fp1 * eta0 /ni / (vh); 
+		if(eta1 >= 1e5) eta1 = 1e5; 
+		else if (eta1 <= 1e-5) eta1 = 1e-5;
+	    }
 
 	    diff = eta1/(1+eta1) - eta0/(1+eta0); 
-//	    if(tiktok == 1) 
-//	    {
-//		cout << steps << "\t" << diff << "\t" << eta0 << "\t" << eta1 << endl; 
-//	    }
-
 	}
 
-	double dof = ni - 2; 
-	double sigma2 = (r2.sum()) / dof;
-	//need to unweight the residual e1 by sqrt(dd);  
 
-	Eigen::MatrixXd cov = sigma2 * xtx.inverse();
-	double se_x = std::sqrt(cov(0, 0));
-	double tstats = beta1(0) / se_x;
-//	    pval = 2 * cdf(complement(students_t(dof), std::abs(tstats)));
-	//t-test; 
-	pval = cdf(complement(chi_squared(1), tstats*tstats));
-	//wald-test; 
+	double bvar = 1; 
+	Eigen::MatrixXd cov = xtx.inverse();
+	double tauinv = r2.sum() / (ni-cols);
+	bvar = tauinv * cov(0, 0);
+	if(dadu.m_wald == 1) {
+	    double tstats = beta1(0) * beta1(0) / bvar;
+    //	    pval = 2 * cdf(complement(students_t(dof), std::abs(tstats)));
+	    //t-test; 
+//	    pval = cdf(complement(chi_squared(1), tstats*tstats));
+	    //wald-test, chi_squared (1); 
+	    boost::math::fisher_f_distribution<double> dist(1, ni-cols); 
+	    pval = boost::math::cdf(complement(dist, tstats)); 
+	    //wald-test, f(1,n-c); 
+	}
+	double loglike1 = 0; 
+	if(dadu.m_lrt == 1) 
+	{
+	    for (int i = 0; i < ni; i++)
+		loglike1 += log(h1inv(i)); 
+	    loglike1 -= log(r2.sum()) * ni / 2.0;   
+
+	    double lrts = -2.0 * (dadu.vloglike0[p] - loglike1);   
+	    if(lrts < 0 ) {
+//		cout << "lrt test statistics = " << lrts << endl; 
+		lrts = 0;
+	    }
+	    pval = cdf(complement(chi_squared(1), lrts));
+	}
 
 	long shift = tiktok*dadu.nph; 
 	dadu.pstats[shift+p].pv = pval; 
 	dadu.pstats[shift+p].eta = eta1/(1+eta1); 
 	dadu.pstats[shift+p].niter = steps; 
 	dadu.pstats[shift+p].beta = beta1(0); 
-	dadu.pstats[shift+p].sigma = se_x; 
-
+	dadu.pstats[shift+p].sigma = sqrt(bvar);  
+	if (dadu.m_lrt == 1) {
+	    dadu.pstats[shift+p].l1 = loglike1; 
+	    dadu.pstats[shift+p].l0 = dadu.vloglike0[p]; 
+	}
     }
 }
 
@@ -421,7 +580,7 @@ int usage()
 	fprintf(stderr, "Version: %s\n", VERSION);
 	fprintf(stderr, "Usage:   idul -i in.vcf.gz -p ph.txt -c cov.txt -k kinship.txt.gz [-bfot]\n");
         fprintf(stderr, "Options: \n");
-	fprintf(stderr, "         -b            output beta etc in additional to p-values\n");
+	fprintf(stderr, "         -b            only write p-values in the output\n");
         fprintf(stderr, "         -c str        covariate file (age, sex etc)\n");
 //	fprintf(stderr, "         -d int        thin marker by a min neighor distance [1] \n");
 	fprintf(stderr, "         -e str        file name for eigenvectors \n");
@@ -435,6 +594,7 @@ int usage()
 	fprintf(stderr, "         -p str        phenotype file\n");
 //	fprintf(stderr, "         -s            save bimbam mgt from vcf\n");
 	fprintf(stderr, "         -t num        number of threads [16]\n");
+	fprintf(stderr, "         -w            use wald test instead of lrt\n");
 //	fprintf(stderr, "         -y            output genotypes in bimbam mgt format\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "Bug report: Yongtao Guan <ytguan@gmail.com>\n\n");
@@ -464,15 +624,21 @@ int main(int argc, char *argv[])
     int flag_pve = 0; 
     int snp_dist = 0; 
     int flag_save_mgt = 0; 
-    int flag_print_beta = 0; 
+    int flag_print_beta = 1; 
 
     dadu.nth = 16;
     double m_maf = 0.01; 
+    double m_var = 1e-6; //2. * m_maf * (1-m_maf);  
+    double m_eval_cutoff = 1e10; 
+
+    dadu.m_wald = 0; 
+    dadu.m_lrt = 1; 
+    int flag_lrt = dadu.m_lrt; 
 
     // Enable multi-threading
     Eigen::initParallel();
 
-    while ((c = getopt(argc, argv, "a:bc:d:e:f:g:hi:k:o:p:st:v:w:y:")) >= 0) 
+    while ((c = getopt(argc, argv, "a:bc:d:e:f:g:hi:k:o:p:st:v:wy:z:")) >= 0) 
     {
 	switch (c) {
 	    case 'a': 
@@ -480,7 +646,7 @@ int main(int argc, char *argv[])
 		break; 
 		//af_tag disabled. 
 	    case 'b': 
-		flag_print_beta = 1; 
+		flag_print_beta = 0; 
 		break;
 	    case 'c': 
 		flag_ww = 1; 
@@ -499,6 +665,7 @@ int main(int argc, char *argv[])
 		break;
 	    case 'f': 
 		m_maf = atof(optarg); 
+//		m_var = 2 * m_maf * (1-m_maf);
 		break;
 	    case 'g': 
 		flag_gt012 = 1; 
@@ -528,9 +695,17 @@ int main(int argc, char *argv[])
 	    case 't': 
 		dadu.nth = atoi(optarg); 
 		break;
+	    case 'w': 
+		dadu.m_wald = 1; 
+		dadu.m_lrt = 0; 
+		flag_lrt = 0; 
+		break;
 	    case 'y':    //1 reml; 2 mle
 		flag_pve = atoi(optarg); 
 		break; 
+	    case 'z': 
+		m_eval_cutoff = atoi(optarg); 
+		break;
 	    default: 
 		break; 
 	}
@@ -567,6 +742,11 @@ int main(int argc, char *argv[])
         my1 = Eigen::Map<Eigen::MatrixXd>(vec_ph.data(), ncols, nrows);
      	dadu.mph.conservativeResize(nrows, ncols); 
 	dadu.mph = my1.transpose(); 
+	Eigen::VectorXd mean = dadu.mph.colwise().mean(); 
+	dadu.mph.rowwise() -= mean.transpose(); 
+	Eigen::VectorXd std = (dadu.mph.array().square()).colwise().sum() / (dadu.mph.rows()-1.0); 
+	std.array().sqrt(); 
+	dadu.mph.array().rowwise() /= std.transpose().array(); 
         dadu.ni = nrows;
         dadu.nph = ncols;
 	vector<double> ().swap(vec_ph); 
@@ -585,9 +765,14 @@ int main(int argc, char *argv[])
 	read_from_gzipped_file(fn_ww, vec_ww); 
 	int colw = vec_ww.size() / ni; 
 	Eigen::MatrixXd w1 = Eigen::Map<Eigen::MatrixXd>(vec_ww.data(), colw, ni);
+	Eigen::VectorXd mean = w1.rowwise().mean(); 
+	w1.colwise() -= mean; 
+	Eigen::VectorXd std = (w1.array().square()).rowwise().sum() / (w1.cols()-1.0); 
+	std.array().sqrt(); 
+	w1.array().colwise() /= std.array(); 
 	col += colw; 
      	w2.conservativeResize(ni, col); 
-	w2 << v1, w1.transpose(); 
+	w2 << v1, w1.transpose() * std::sqrt(ni); 
     	vector<double> ().swap(vec_ww); 
     }
     else 
@@ -651,9 +836,11 @@ int main(int argc, char *argv[])
     {
 	if(dadu.eval(j) < 0) 
 	{
-	    dadu.eval(j) = 1; 
-	    dadu.evec.col(j).setZero(); 
+	    dadu.eval(j) = 1e-6; 
+//	    dadu.evec.col(j).setZero(); 
 	}
+	if(dadu.eval(j) > m_eval_cutoff) 
+	    dadu.eval(j) = m_eval_cutoff; 
     }
     //for negative eigenvalue, set corresponding eigenvector 0. 
 //    cout << "eval: "; 
@@ -691,6 +878,11 @@ int main(int argc, char *argv[])
 	exit(0); 
     }
 
+//    if(dadu.m_lrt == 1) 
+    {
+	loglike0(); 
+    }
+
     /////////////////////////////////////////////////////
     string buf1; 
     buf1.assign(pref); 
@@ -701,9 +893,49 @@ int main(int argc, char *argv[])
 	    exit(EXIT_FAILURE);
     }   // for SNPs pvals etc. 
     if(flag_print_beta == 1) 
-	gzprintf(fp1, "pv  beta  sigma  h  iter\n"); 
+    {
+
+	if(dadu.nph > 1) {
+	    if(flag_lrt == 1) {
+		for(int j = 0; j < dadu.nph; j++) 
+		    gzprintf(fp1, "p_lrt_%d  beta_%d  sigma_%d  l0_%d  l1_%d  h_%d  iter_%d", j, j, j, j, j, j, j); 
+		gzprintf(fp1, "\n"); 
+	    }
+	    else {
+		for(int j = 0; j < dadu.nph; j++) 
+		    gzprintf(fp1, "p_wald_%d  beta_%d  sigma_%d  h_%d  iter_%d ", j, j, j, j, j); 
+		gzprintf(fp1, "\n"); 
+	    }
+	}
+	else {
+	    if(flag_lrt == 1) 
+	    	gzprintf(fp1, "p_lrt  beta  sigma  l0  l1  h  iter \n"); 
+	    else 
+	    	gzprintf(fp1, "p_wald  beta  sigma  h  iter \n"); 
+	}
+
+    }
     else 
-	gzprintf(fp1, "pv\n"); 
+    {
+	if(dadu.nph > 1) {
+            if(flag_lrt == 1) {
+		for(int j = 0; j < dadu.nph; j++) 
+		    gzprintf(fp1, "p_lrt_%d ", j); 
+		gzprintf(fp1, "\n"); 
+	    }
+	    else {
+		for(int j = 0; j < dadu.nph; j++) 
+		    gzprintf(fp1, "p_wald_%d ", j); 
+		gzprintf(fp1, "\n"); 
+	    }
+	}
+	else {
+	    if(flag_lrt == 1) 
+	    	gzprintf(fp1, "p_lrt \n"); 
+	    else 
+	    	gzprintf(fp1, "p_wald \n"); 
+	}
+    }
 
     string buf2; 
     buf2.assign(pref); 
@@ -713,7 +945,7 @@ int main(int argc, char *argv[])
 	    fprintf(stderr, "can't open file %s\n", buf2.c_str()); 
 	    exit(EXIT_FAILURE);
     }   // for SNPs info. such as rsnumber, alleles, maf, etc.  
-    gzprintf(fp2, "snpid  a  b  af\n"); 
+    gzprintf(fp2, "snpid  a  b  af \n"); 
 
     gzFile fp3 = NULL; 
     if(flag_save_mgt == 1) 
@@ -743,116 +975,136 @@ int main(int argc, char *argv[])
     if(flag_gt012 == 1)  //this is to read bimbam mean genotype file. 
     {
 	cout << fn_gt012 << endl; 
-	gzFile file = gzopen(fn_gt012.c_str(), "rb");
-	if (file == NULL) {
-	    fprintf(stderr, "Failed to open file %s\n", fn_gt012.c_str());
-	    exit(1);
+	std::ifstream file(fn_gt012, std::ios_base::in | std::ios_base::binary); 
+	if(!file.is_open()) {
+	    cout << "Failed to open file" << endl; 
+	    return 1; 
 	}
 
-	char buffer[BUFFER_SIZE];
-	std::string decompressed_data;
+	try {
+	    boost::iostreams::filtering_istream in; 
+	    if(fn_gt012.substr(fn_gt012.find_last_of(".")) == ".gz") {
+	    	in.push(boost::iostreams::gzip_decompressor()); 
+	    }
+	    in.push(file); 
+	    std::string line; 
+	    dadu.ns = 0; 
+	    int nlines = 0; 
+	    stringstream fss; 
+	    while(std::getline(in, line)) {
+		++dadu.ns;
 
-	// Read and decompress the entire file into a string
-	int bytes_read;
-	while ((bytes_read = gzread(file, buffer, BUFFER_SIZE - 1)) > 0) {
-	    buffer[bytes_read] = '\0';
-	    decompressed_data.append(buffer);
-	}
-	gzclose(file);
+		std::stringstream line_stream(line); 
+		//Skip the first three columns (strings)
+		//but write them into the output. 
+		for (int i = 0; i < 3; ++i) {
+		    std::string temp;
+		    line_stream >> temp;
+		    fss <<  temp << " "; 
+		    
+		}
 
-	// Process the decompressed data line by line
-	std::stringstream ss(decompressed_data);
-	std::string line;
-	dadu.ns = 0;                    
-	int nlines = 0; 
-	while (std::getline(ss, line)) {
-	    std::stringstream line_stream(line);
-            ++dadu.ns;
+		// Read the remaining values and store them into the vector
+		float value;
+		int ii = 0; 
+		double sum = 0; 
+		double sum2 = 0; 
+		vector<float> vv; 
+		while (line_stream >> value) {
+		    if(value > 2 || value < 0) 
+			cout << "genotype out of the bounds " << value <<endl; 
+    //	        snpgt[ii++] = value; 
+		    sum += value; 
+		    sum2 += value * value; 
+		    vv.push_back(value); 
+		    ii++; 
+		}
+		sum /= ii; 
+		sum2 /= ii; 
+		sum2 -= sum*sum; 
+		if(sum/2.0 < m_maf || sum/2.0 > (1-m_maf) || sum2 < m_var)
+		{
+		    fss.clear(); 
+		    fss.str(""); 
+		    continue; 
+		}
 
-	    //Skip the first three columns (strings)
-	    //but write them into the output. 
-	    for (int i = 0; i < 3; ++i) {
-		std::string temp;
-		line_stream >> temp;
-//		fprintf(fp2, "%s ", temp.c_str()); 
-		gzprintf(fp2, "%s ", temp.c_str()); 
+		gzprintf(fp2, "%s %f \n", fss.str().c_str(), sum/2.0);   //allele frequency;
+		fss.clear(); 
+		fss.str(""); 
 		
+		for (unsigned i = 0; i < vv.size(); i++)
+		    dadu.v8.push_back(vv.at(i));
+		vector<float> ().swap(vv); 
+		nlines++; 
+
+		if(nlines == dadu.nth*100) 
+		{
+		    assert((int) dadu.v8.size() == nlines*dadu.ni); 
+		    long tiktok = 0; 
+		    for (int m = 0; m < nlines; m++)
+		    {
+			thpool_add_work(thpool, jacquard, (void*)tiktok);
+			tiktok++; 
+		    }
+		    thpool_wait(thpool); 
+		    print_progress_num(0, dadu.ns); 
+		    for (int j = 0; j < nlines; j++) 
+		    {                                                
+			int shift = j*dadu.nph; 
+			for (int p = 0; p < dadu.nph; p++) 
+			{
+			    Stats * ps = &dadu.pstats[p+shift]; 
+			    if(flag_print_beta == 1) {
+				if(flag_lrt == 1) 
+				    gzprintf(fp1, "%.4e %f %f %f %f %f %d ", ps->pv, ps->beta, ps->sigma, ps->l0, ps-> l1, ps->eta, ps->niter); 
+				else 
+				    gzprintf(fp1, "%.4e %f %f %f %d ", ps->pv, ps->beta, ps->sigma, ps->eta, ps->niter); 
+			    }
+			    else 
+				gzprintf(fp1, "%.4e  ", ps->pv); 
+			}
+			gzprintf(fp1, "\n"); 
+		    }
+		    nlines = 0; 
+		    vector<float> ().swap(dadu.v8); 
+		}
+
 	    }
-//	    fprintf(fp2, "\n "); 
-	    gzprintf(fp2, "\n "); 
-
-	    // Read the remaining values and store them into the vector
-	    float value;
-	    int ii = 0; 
-	    double sum = 0; 
-	    while (line_stream >> value) {
-		if(value > 2 || value < 0) 
-		    cout << "genotype out of the bounds " << value <<endl; 
-//	        snpgt[ii++] = value; 
-		sum += value; 
-		ii++; 
-		dadu.v8.push_back(value);
-	    }
-	    sum /= (ii*2.0); 
-	    gzprintf(fp2, " %f ", sum);   //allele frequency;
-
-	    nlines++; 
-
-	    if(nlines == dadu.nth*100) 
-	    {
+	    if(nlines > 0) {
+		//process the remaing lines; 
 		assert((int) dadu.v8.size() == nlines*dadu.ni); 
 		long tiktok = 0; 
-                for (int m = 0; m < nlines; m++)
+		for (int m = 0; m < nlines; m++)
 		{
 		    thpool_add_work(thpool, jacquard, (void*)tiktok);
 		    tiktok++; 
 		}
 		thpool_wait(thpool); 
-         	print_progress_num(0, dadu.ns); 
+		print_progress_num(0, dadu.ns); 
 		for (int j = 0; j < nlines; j++) 
-		{                                                
+		{
 		    int shift = j*dadu.nph; 
 		    for (int p = 0; p < dadu.nph; p++) 
 		    {
-			if(flag_print_beta == 1) 
-		    	    gzprintf(fp1, "%.10e  %f  %f %f %d ", dadu.pstats[p+shift].pv, dadu.pstats[p+shift].beta, dadu.pstats[p+shift].sigma, dadu.pstats[p+shift].eta, dadu.pstats[p+shift].niter); 
+			Stats * ps = &dadu.pstats[p+shift]; 
+			if(flag_print_beta == 1) {
+			    if(flag_lrt == 1) 
+				gzprintf(fp1, "%.4e %f %f %f %f %f %d ", ps->pv, ps->beta, ps->sigma, ps->l0, ps-> l1, ps->eta, ps->niter); 
+			    else 
+				gzprintf(fp1, "%.4e %f %f %f %d ", ps->pv, ps->beta, ps->sigma, ps->eta, ps->niter); 
+			}
 			else 
-		    	    gzprintf(fp1, "%.10e  ", dadu.pstats[p+shift].pv); 
+			    gzprintf(fp1, "%.4e  ", ps->pv); 
 		    }
 		    gzprintf(fp1, "\n"); 
 		}
-		nlines = 0; 
-		vector<float> ().swap(dadu.v8); 
 	    }
-
+	    cout << dadu.ni << endl; 
+	    cout << dadu.ns << endl; 
+	} catch(const boost::iostreams::gzip_error& e) {
+	    std::cout << e.what() << std::endl; 
 	}
-	if(nlines > 0) {
-	    //process the remaing lines; 
-	    assert((int) dadu.v8.size() == nlines*dadu.ni); 
-	    long tiktok = 0; 
-	    for (int m = 0; m < nlines; m++)
-	    {
-		thpool_add_work(thpool, jacquard, (void*)tiktok);
-		tiktok++; 
-	    }
-	    thpool_wait(thpool); 
-       	    print_progress_num(0, dadu.ns); 
-	    for (int j = 0; j < nlines; j++) 
-	    {
-		int shift = j*dadu.nph; 
-		for (int p = 0; p < dadu.nph; p++) 
-		{
-		    if(flag_print_beta == 1) 
-			gzprintf(fp1, "%.10e  %f  %f %f %d ", dadu.pstats[p+shift].pv, dadu.pstats[p+shift].beta, dadu.pstats[p+shift].sigma, dadu.pstats[p+shift].eta, dadu.pstats[p+shift].niter); 
-		    else 
-			gzprintf(fp1, "%.10e  ", dadu.pstats[p+shift].pv); 
-		}
-		gzprintf(fp1, "\n"); 
-	    }
-	}
-
-	cout << dadu.ni << endl; 
-	cout << dadu.ns << endl; 
     }
 
     ///////////////////////////////////
@@ -900,24 +1152,6 @@ int main(int argc, char *argv[])
 		   continue; 
 	    }  //this is to thin SNPs by bp distance.  simple, but not optimal. 
 
-//	    int dp_status = 0; 
-//	    float * dst = NULL;
-//	    int ndst = 0;
-//	    double af = 0; 
-//	    dp_status = bcf_get_info_values(hdr, line, af_tag.c_str(),  (void**) &dst, &ndst, BCF_HT_REAL);
-//	    if(dp_status > 0) {
-//		af = dst[0]; 
-//		free(dst); 
-//		if(af < m_maf || af > 1-m_maf)
-//		    continue; 
-//		//filter by maf. 
-//	    } else {
-//		ns0++; 
-//		free(dst); 
-//		continue; 
-//		//filter by af_tag. 
-//	    }
-			 
 	    int32_t *gt_arr = NULL, ngt_arr = 0;
             int ngt;
 	    ngt = bcf_get_genotypes(hdr, line, &gt_arr, &ngt_arr);
@@ -939,13 +1173,19 @@ int main(int argc, char *argv[])
 	    }
 	    int c3 = 0; 
 	    float sum = 0; 
+	    float sum2 = 0; 
 	    for (int i = 0; i < dadu.ni; i++) 
 	    {
 		if(snpgt[i] > 2) c3++;
-		else sum += snpgt[i]; 
+		else {
+		    sum += snpgt[i]; 
+		    sum2 += snpgt[i] * snpgt[i]; 
+		}
 	    }
 	    sum /= (dadu.ni - c3); 
-       	    if(sum/2 < m_maf || sum/2 > 1-m_maf)
+	    sum2 /= (dadu.ni - c3); 
+	    sum2 -= sum*sum; 
+       	    if(sum/2 < m_maf || sum/2 > 1-m_maf || sum2 < m_var)
        	       continue; 
 	    
 	    free(gt_arr);
@@ -993,10 +1233,15 @@ int main(int argc, char *argv[])
 		    int shift = j*dadu.nph; 
 		    for (int p = 0; p < dadu.nph; p++) 
 		    {
-			if(flag_print_beta == 1) 
-			    gzprintf(fp1, "%.10e  %f  %f %f %d ", dadu.pstats[p+shift].pv, dadu.pstats[p+shift].beta, dadu.pstats[p+shift].sigma, dadu.pstats[p+shift].eta, dadu.pstats[p+shift].niter); 
+		    	Stats * ps = &dadu.pstats[p+shift]; 
+			if(flag_print_beta == 1) {
+			    if(flag_lrt == 1) 
+			    	gzprintf(fp1, "%.4e %f %f %f %f %f %d ", ps->pv, ps->beta, ps->sigma, ps->l0, ps-> l1, ps->eta, ps->niter); 
+			    else 
+			    	gzprintf(fp1, "%.4e %f %f %f %d ", ps->pv, ps->beta, ps->sigma, ps->eta, ps->niter); 
+			}
 			else 
-			    gzprintf(fp1, "%.10e  ", dadu.pstats[p+shift].pv); 
+			    gzprintf(fp1, "%.4e  ", ps->pv); 
 		    }
 		    gzprintf(fp1, "\n"); 
 		}
@@ -1020,10 +1265,15 @@ int main(int argc, char *argv[])
 		int shift = j*dadu.nph; 
 		for (int p = 0; p < dadu.nph; p++) 
 		{
-		    if(flag_print_beta == 1) 
-			gzprintf(fp1, "%.10e  %f  %f %f %d ", dadu.pstats[p+shift].pv, dadu.pstats[p+shift].beta, dadu.pstats[p+shift].sigma, dadu.pstats[p+shift].eta, dadu.pstats[p+shift].niter); 
+		    Stats * ps = &dadu.pstats[p+shift]; 
+		    if(flag_print_beta == 1) {
+			if(flag_lrt == 1) 
+			    gzprintf(fp1, "%.4e %f %f %f %f %f %d ", ps->pv, ps->beta, ps->sigma, ps->l0, ps-> l1, ps->eta, ps->niter); 
+			else 
+			    gzprintf(fp1, "%.4e %f %f %f %d ", ps->pv, ps->beta, ps->sigma, ps->eta, ps->niter); 
+		    }
 		    else 
-			gzprintf(fp1, "%.10e  ", dadu.pstats[p+shift].pv); 
+			gzprintf(fp1, "%.4e  ", ps->pv); 
 		}
 		gzprintf(fp1, "\n"); 
 	    }
