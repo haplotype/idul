@@ -1,11 +1,18 @@
 # IDUL
-IDUL (iterative dispersion update to fit linear mixed model) is designed for multi-omics analysis where each SNPs are tested for association with many phenotypes. IDUL has both theoretical and practical advantages over the Newton-Raphson method. Below is the abstract of a manuscript that document IDUL with a title "Iterative dispersion update achieves an exact optimum for the linear mixed model in genetic association studies".   
-
-In genetic association studies, the linear mixed model (LMM) has become a standard practice to account for population stratification and relatedness in the sample, which if unaccounted for tend to produce false positives. Despite recent progress, fitting LMMs to achieve an exact optimum remains computationally demanding, particularly in multi-omics studies where tens of thousands of phenotypes are tested for association with millions of genetic markers.  The state-of-the-art method GEMMA used Newton-Raphson algorithm for optimization to achieve ``effectively exact" optimum.   Here we present IDUL, an approach that uses iterative dispersion updates to fit LMMs. The dispersion update requires no evaluation of derivatives of the likelihood function, rather, it fits two weighted least square regressions in each iteration.  Applied to Sabre protein assay from the Framingham Heart Study,  IDUL converged in a few iterations and provided consistent estimates between different initial values, showed superiority over the Newton-Raphson method. We analyzed IDUL through a theoretical lens to show that it is as efficient as the Newton-Raphson method near the optimum, and with a sufficiently large sample size, IDUL update  always increases the likelihood, even outside the neighborhood of the optimum, which ensures its consistency. Most significantly, with sufficiently large sample, IDUL converges to the global optimum with a probability of one, achieving the exact optimum.  Software implementing IDUL can be downloaded at http://www.haplotype.org. 
+IDUL (iterative dispersion update to fit linear mixed model) is designed for multi-omics analysis where each SNPs are tested for association with many phenotypes. IDUL has both theoretical and practical advantages over the Newton-Raphson method. 
 
 ## Current version 
-Version 0.51 was compiled on 28 July 2023. Linux exectuable can be downloaded from: http://www.haplotype.org.  
-You may also choose to compile from the source code in src/. 
+Version 0.51 was compiled on 7 Aug 2023. Linux exectuable can be downloaded from: http://www.haplotype.org.  
+You may also choose to compile from the source code in src/, but you want to install eigen and boost packages first. 
+
+## Usage exmpales  
+1) This example takes vcf file as genotypes input.  The output contains likelihood ratio test p-values, effect size, likelihood, etc.
+    
+       ./idul -i input.vcf.gz -p phenotypes.gz -k kinship.txt -o pref 
+
+3) This example takes bimbam mean genotype as genotype input. Since -b is invoked, pref.pval.gz only contains a p-value for each SNP each phenotype.
+   
+       ./idul -g input.bimbam.mgt.gz -p phenotypes.gz -k kinship.gz -o pref -b 
 
 ## Input and options  
     y = W a + x b + u + e 
@@ -38,17 +45,11 @@ SNPs whose minor allele frequencies are below the threshold will be removed.
     
 There are three output files: pref.log (a txt document contains log), pref.snpinfo.txt.gz, and pref.pval.gz file, where pref is specified by -o. 
 There are four columns in pref.snpinfo.txt.gz, SNP ID, A-allele, B-allele, and MAF (minor allele frequency). 
-By default pref.pval.gz only contains p-values, one column per phenotypes and one SNP per row. 
-If -b is invoked, then additional informations will be writen, including SNP effect size (beta), sigma of beta, eta/(1+eta), and number of IDUL iterations to obtain eta estimates. 
+By default pref.pval.gz contains p-values, beta, sigma, l0 (loglikelihood of null), l1 (loglikelihood of alternative), h (eta/(eta+1)), and niter (number of iterations used) in optimization. 
+If -b was invoked, pref.pval.gz only contains pvalues.  
 
-## Usage exmpales  
-1) This example takes vcf file as genotypes input. The output pref.pval.gz only contains a p-value for each SNP each phenotype.
-   
-       ./idul -i input.vcf.gz -p phenotypes.gz -k kinship.txt -o pref 
-
-2) This example takes bimbam mean genotype as genotype input. Since -b is invoked, the pref.pval.gz contains more columns in addition to p-values, such as beta and sigma, etc.
-   
-       ./idul -g input.bimbam.mgt.gz -p phenotypes.gz -k kinship.gz -o pref -b 
 
 ## Other options
        -t  number_of_threads.  
+       -w  compute wald test p-values instead of likelihood ratio test p-values, which is default. 
+
