@@ -27,7 +27,7 @@ CFLAGS += -Wall -m64 -fno-math-errno  -ffast-math
 HTSINC?=-I/usr/local/include/htslib -I/usr/local/include/eigen3/ -I/usr/include/boost/math/distributions
 HTSLIB?=/usr/local/lib  -L/usr/local/boost/lib 
 CFLAGS += $(HTSINC) -g
-LDFLAGS = -lm -lhts -lz -llzma -lbz2 -llapack -lblas 
+LDFLAGS = -lm -lhts -lz -llzma -lbz2 -llapack -lblas -lboost_iostreams 
 LDFLAGS += -lpthread 
 
 OBJS = idul.o thpool.o
