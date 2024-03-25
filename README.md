@@ -2,16 +2,15 @@
 IDUL (iterative dispersion update to fit linear mixed model) is designed for multi-omics analysis where each SNPs are tested for association with many phenotypes. IDUL has both theoretical and practical advantages over the Newton-Raphson method. 
 
 ## Current version 
-Version 0.51 was compiled on 7 Aug 2023. Linux exectuable can be downloaded from: http://www.haplotype.org.  
+Version 0.51 was compiled on 7 Aug 2023. Linux exectuable verion 0.51 can be downloaded from: http://www.haplotype.org.
+Version 0.81 was compiled on 14 March 2024. Linux exectuable version 0.81 can be downloaded from above. An folder contain example files can also be downloaded from above. 
 You may also choose to compile from the source code in src/, but you want to install eigen and boost packages first. A preprint documenting IDUL can be found here: https://biorxiv.org/cgi/content/short/2023.10.25.563975v2. 
 
 ## Usage exmpales  
-1) This example takes vcf file as genotypes input.  The output contains likelihood ratio test p-values, effect size, likelihood, etc.
-    
+1) This example takes vcf file as genotypes input.  The output contains only likelihood ratio test p-values.
        ./idul -i input.vcf.gz -p phenotypes.gz -k kinship.txt -o pref 
 
-3) This example takes bimbam mean genotype as genotype input. Since -b is invoked, pref.pval.gz only contains a p-value for each SNP each phenotype.
-   
+2) This example takes bimbam mean genotype as genotype input. Since -a is invoked, output contains additional information such as effect size, standard deivation, etc.  
        ./idul -g input.bimbam.mgt.gz -p phenotypes.gz -k kinship.gz -o pref -b 
 
 ## Input and options  
@@ -41,15 +40,18 @@ SNPs whose minor allele frequencies are below the threshold will be removed.
 ## Output and options
 
      -o output_pref. 
-     -b 
+     -a output additional test statistics. 
     
 There are three output files: pref.log (a txt document contains log), pref.snpinfo.txt.gz, and pref.pval.gz file, where pref is specified by -o. 
 There are four columns in pref.snpinfo.txt.gz, SNP ID, A-allele, B-allele, and MAF (minor allele frequency). 
-By default pref.pval.gz contains p-values, beta, sigma, l0 (loglikelihood of null), l1 (loglikelihood of alternative), h (eta/(eta+1)), and niter (number of iterations used) in optimization. 
-If -b was invoked, pref.pval.gz only contains pvalues.  
+Since Ver 0.81, IDUL only output p-values by default.  If -a was invoked, output contains additional test statistics such as beta, sigma, l0 (loglikelihood of null), l1 (loglikelihood of alternative), h (eta/(eta+1)), and niter (number of iterations used) in optimization. .  
 
 
 ## Other options
        -t  number_of_threads.  
        -w  compute wald test p-values instead of likelihood ratio test p-values, which is default. 
+       -x  use IDUL+ algorithm instead of IDUL. 
+       -b  compute Bayes factors (method not yet described). 
+       -0 -1 -j work in progress. 
+
 
