@@ -2,9 +2,9 @@
 IDUL (iterative dispersion update to fit linear mixed model) is designed for multi-omics analysis where each SNPs are tested for association with many phenotypes. IDUL has both theoretical and practical advantages over the Newton-Raphson method. 
 
 ## Current version 
-Version 0.51 was compiled on 7 Aug 2023. Linux exectuable verion 0.51 can be downloaded from: http://www.haplotype.org.
-
 Version 0.81 was compiled on 14 March 2024. Linux exectuable version 0.81 can be downloaded from above: https://github.com/haplotype/idul/blob/main/idul.linux.0.81.tar.gz. An folder contain example files can also be downloaded from above. 
+
+(Version 0.51 was compiled on 7 Aug 2023. Linux exectuable verion 0.51 can be downloaded from: http://www.haplotype.org.)
 
 You may also choose to compile from the source code in src/, but you want to install eigen and boost packages first. A preprint documenting IDUL can be found here: https://biorxiv.org/cgi/content/short/2023.10.25.563975v2. 
 
