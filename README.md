@@ -2,7 +2,7 @@
 IDUL (iterative dispersion update to fit linear mixed model) is designed for multi-omics analysis where each SNPs are tested for association with many phenotypes. IDUL has both theoretical and practical advantages over the Newton-Raphson method. 
 
 ## Current version 
-Version 0.81 was compiled on 14 March 2024. Linux exectuable version 0.81 can be downloaded from above: https://github.com/haplotype/idul/blob/main/idul.linux.0.81.tar.gz. An folder contain example files can also be downloaded from above. 
+Version 0.81 was compiled on 14 March 2024. Linux exectuable can be downloaded from above: https://github.com/haplotype/idul/blob/main/idul.linux.0.81.tar.gz. An folder contain example files can also be downloaded from above. 
 
 (Version 0.51 was compiled on 7 Aug 2023. Linux exectuable verion 0.51 can be downloaded from: http://www.haplotype.org.)
 
@@ -46,14 +46,14 @@ SNPs whose minor allele frequencies are below the threshold will be removed.
     
 There are three output files: pref.log (a txt document contains log), pref.snpinfo.txt.gz, and pref.pval.gz file, where pref is specified by -o. 
 There are four columns in pref.snpinfo.txt.gz, SNP ID, A-allele, B-allele, and MAF (minor allele frequency). 
-Since Ver 0.81, IDUL only output p-values by default.  If -a was invoked, output contains additional test statistics such as beta, sigma, l0 (loglikelihood of null), l1 (loglikelihood of alternative), h (eta/(eta+1)), and niter (number of iterations used) in optimization. .  
+Since Ver 0.81, IDUL only output p-values by default.  If -a was invoked, output contains additional test statistics such as beta, sigma, l0 (loglikelihood of null), l1 (loglikelihood of alternative), h (eta/(eta+1)), and niter (number of iterations used in optimization).  
 
 
 ## Other options
        -t  number_of_threads.  
-       -w  compute wald test p-values instead of likelihood ratio test p-values, which is default. 
+       -w  compute wald test p-values instead of likelihood ratio test p-values. 
        -x  use IDUL+ algorithm instead of IDUL. 
-       -b  compute Bayes factors (method not yet described). 
+       -b  compute Bayes factors (method not yet formally documented). 
        -0 -1 -j work in progress. 
 
 
