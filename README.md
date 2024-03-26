@@ -13,7 +13,7 @@ You may also choose to compile from the source code in src/, but you want to ins
        ./idul -i input.vcf.gz -p phenotypes.gz -k kinship.txt -o pref 
 
 2) This example takes bimbam mean genotype as genotype input. Since -a is invoked, output contains additional information such as effect size, standard deivation, etc.  
-       ./idul -g input.bimbam.mgt.gz -p phenotypes.gz -k kinship.gz -o pref -b 
+       ./idul -g input.bimbam.mgt.gz -p phenotypes.gz -k kinship.gz -o pref -a 
 
 ## Input and options  
     y = W a + x b + u + e 
