@@ -25,7 +25,7 @@ This is the standard linear mixed model. The following options specify each comp
     -g bimbam_mean_genotypes (x). 
     -k kinship_file (u).  
   
-Phenotypes file is expected to have multiple columns (a single column is okay too) with one column for each phenotype. Phenotypes should have no missing values. Covariates file is a square, with the same number of rows as phenotypes, and however many columns needed. Missing values are allowed for vcf files (replaced with the mean genotypes), but not allowed for bimbam mean genotypes. Kinship is a square and symmetric kinsihp matrix, such as one estimated by [kindred](https://github.com/haplotype/kindred). Rows of bimbam mean genotype looks like below. 
+Phenotypes file is expected to have multiple columns (a single column is okay too) with one column for each phenotype. Phenotypes should have no missing values. Covariates file is a rectangle, with the same number of rows as phenotypes, and however many columns needed. Missing values are allowed for vcf files (replaced with the mean genotypes), but not allowed for bimbam mean genotypes. Kinship is a square and symmetric kinsihp matrix, such as one estimated by [kindred](https://github.com/haplotype/kindred). Rows of bimbam mean genotype looks like below. 
 
     rs123 A G 0 1 2 2 0 1.1 0 
     rs456 C T 1 0 1 0.05 0 2 0 
