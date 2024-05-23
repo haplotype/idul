@@ -4,8 +4,6 @@ IDUL (iterative dispersion update to fit linear mixed model) is designed for mul
 ## Current version 
 Version 0.83 was first compiled on 23 May 2024. Linux exectuable can be downloaded from above, or from http://www.haplotype.org/download/idul.linux.0.83.tar.gz. An folder contain example files can also be downloaded from above. 
 
-(Version 0.51 was compiled on 7 Aug 2023. Linux exectuable verion 0.51 can be downloaded from: http://www.haplotype.org.)
-
 You may also choose to compile from the source code in src/, but you want to install eigen and boost packages first. A preprint documenting IDUL can be found here: https://biorxiv.org/cgi/content/short/2023.10.25.563975v3. 
 
 ## Usage exmpales  
