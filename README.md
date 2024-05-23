@@ -2,7 +2,7 @@
 IDUL (iterative dispersion update to fit linear mixed model) is designed for multi-omics analysis where each SNPs are tested for association with many phenotypes. IDUL has both theoretical and practical advantages over the Newton-Raphson method. 
 
 ## Current version 
-Version 0.81 was first compiled on 14 March 2024. Linux exectuable can be downloaded from above: https://github.com/haplotype/idul/blob/main/idul.linux.0.81.tar.gz. An folder contain example files can also be downloaded from above. 
+Version 0.83 was first compiled on 23 May 2024. Linux exectuable can be downloaded from above: https://github.com/haplotype/idul/blob/main/idul.linux.0.83.tar.gz. An folder contain example files can also be downloaded from above. 
 
 (Version 0.51 was compiled on 7 Aug 2023. Linux exectuable verion 0.51 can be downloaded from: http://www.haplotype.org.)
 
@@ -12,9 +12,12 @@ You may also choose to compile from the source code in src/, but you want to ins
 1) This example takes vcf file as genotypes input.  The output contains only likelihood ratio test p-values.
        ./idul -i input.vcf.gz -p phenotypes.gz -k kinship.txt -o pref 
 
-2) This example takes bimbam mean genotype as genotype input. Since -a is invoked, output contains additional information such as effect size, standard deivation, etc.  
-       ./idul -g input.bimbam.mgt.gz -p phenotypes.gz -k kinship.gz -o pref -a 
+2) This example takes bimbam mean genotype as genotype input. Since -b is invoked, it computes and outputs (log) Bayes factors.  
+       ./idul -b -g input.bimbam.mgt.gz -p phenotypes.gz -k kinship.gz -o pref  
 
+3) This example computes residual. It takes covariates file, phenotype file and and kinship file as input, and output residuals.  
+       ./idul -r -c cov.txt -p phenotypes.gz -k kinship.gz -o pref
+    
 ## Input and options  
     y = W a + x b + u + e 
 This is the standard linear mixed model. The following options specify each components (except e). 
@@ -54,6 +57,5 @@ Since Ver 0.81, IDUL only output p-values by default.  If -a was invoked, output
        -w  compute wald test p-values instead of likelihood ratio test p-values. 
        -x  use IDUL+ algorithm instead of IDUL. 
        -b  compute Bayes factors (method not yet formally documented). 
-       -0 -1 -j work in progress. 
-
+       -r  compute residual of phenotype files. 
 
