@@ -54,6 +54,6 @@ Since Ver 0.81, IDUL only output p-values by default.  If -a was invoked, output
        -t  number_of_threads.  
        -w  compute wald test p-values instead of likelihood ratio test p-values. 
        -x  use IDUL+ algorithm instead of IDUL. 
-       -b  compute Bayes factors (method not yet formally documented). 
+       -b  compute Bayes factors. 
        -r  compute residual of phenotype files. 
 
